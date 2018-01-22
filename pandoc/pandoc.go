@@ -533,7 +533,12 @@ func (p *Pandoc) Convert(fetcherOpts FetcherOptions, convertOpts ConvertOptions)
 	var data []byte
 
 	if len(convertOpts.DataDir) > 0 && !filepath.HasPrefix(convertOpts.DataDir, p.safeDir) {
-		err = fmt.Errorf("DataDir: '%s' is not is safe dir: '%s'", convertOpts.DataDir, p.safeDir)
+		err = fmt.Errorf("DataDir: '%s' is not in safe dir: '%s'", convertOpts.DataDir, p.safeDir)
+		return
+	}
+
+	if len(convertOpts.Template) > 0 && !filepath.HasPrefix(convertOpts.Template, p.safeDir) {
+		err = fmt.Errorf("Template: '%s' is not in safe dir: '%s'", convertOpts.Template, p.safeDir)
 		return
 	}
 

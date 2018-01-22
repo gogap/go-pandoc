@@ -270,10 +270,13 @@ func writeResp(rw http.ResponseWriter, convertArgs ConvertArgs, resp ConvertResp
 	respHelper := newRespHelper(rw)
 
 	args := TemplateArgs{
-		From:            convertArgs.Converter.From,
-		To:              convertArgs.Converter.To,
 		ConvertResponse: resp,
 		Response:        respHelper,
+	}
+
+	if convertArgs.Converter != nil {
+		args.From = convertArgs.Converter.From
+		args.To = convertArgs.Converter.To
 	}
 
 	buf := bytes.NewBuffer(nil)
