@@ -1,0 +1,17 @@
+{{if eq .Code 0}}
+
+	{{if eq .To "pdf"}}
+		{{.Response.SetHeader "Content-Type" "application/pdf"}}
+	{{end}}
+
+	{{ .Result.Data | .Response.Write }}
+
+{{else}}
+
+	{{.Response.WriteHeader 400}}
+	{{ .Message | toBytes | .Response.Write }}
+
+{{end}}
+
+
+{{ .Response.Hold true}}
