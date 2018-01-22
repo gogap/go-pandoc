@@ -97,12 +97,7 @@ type ConvertOptions struct {
 	Jsmath                string        `json:"jsmath"`
 	Gladtex               bool          `json:"gladtex"`
 	Abbreviations         string        `json:"abbreviations"`
-	Trace                 bool          `json:"trace"`
-	DumpArgs              bool          `json:"dump_args"`
-	IgnoreArgs            bool          `json:"ignore_args"`
-	Verbose               bool          `json:"verbose"`
 	FailIfWarnings        bool          `json:"fail_if_warnings"`
-	Log                   string        `json:"log"`
 }
 
 func (p *ConvertOptions) toCommandArgs() []string {
@@ -192,22 +187,6 @@ func (p *ConvertOptions) toCommandArgs() []string {
 
 	if p.Gladtex {
 		args = append(args, "--gladtex")
-	}
-
-	if p.Trace {
-		args = append(args, "--trace")
-	}
-
-	if p.DumpArgs {
-		args = append(args, "--dump-args")
-	}
-
-	if p.IgnoreArgs {
-		args = append(args, "--ignore-args")
-	}
-
-	if p.Verbose {
-		args = append(args, "--verbose")
 	}
 
 	if p.FailIfWarnings {
@@ -438,10 +417,6 @@ func (p *ConvertOptions) toCommandArgs() []string {
 		args = append(args, "--abbreviations", p.Abbreviations)
 	}
 
-	if len(p.Log) != 0 {
-		args = append(args, "--log", p.Log)
-	}
-
 	return args
 }
 
@@ -546,7 +521,7 @@ func (p *Pandoc) Convert(fetcherOpts FetcherOptions, convertOpts ConvertOptions)
 
 	args := convertOpts.toCommandArgs()
 
-	args = append(args, []string{tmpInput, "--output", tmpOutpout}...)
+	args = append(args, []string{"--quiet", tmpInput, "--output", tmpOutpout}...)
 
 	_, err = execCommand(p.timeout, "pandoc", args...)
 
