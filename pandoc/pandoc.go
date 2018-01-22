@@ -98,6 +98,11 @@ type ConvertOptions struct {
 	Gladtex               bool          `json:"gladtex"`
 	Abbreviations         string        `json:"abbreviations"`
 	FailIfWarnings        bool          `json:"fail_if_warnings"`
+
+	verbose    bool
+	trace      bool
+	dumpArgs   bool
+	ignoreArgs bool
 }
 
 func (p *ConvertOptions) toCommandArgs() []string {
@@ -417,6 +422,22 @@ func (p *ConvertOptions) toCommandArgs() []string {
 		args = append(args, "--abbreviations", p.Abbreviations)
 	}
 
+	if p.verbose {
+		args = append(args, "--verbose")
+	}
+
+	if p.dumpArgs {
+		args = append(args, "--dump-args")
+	}
+
+	if p.ignoreArgs {
+		args = append(args, "--ignore-args")
+	}
+
+	if p.trace {
+		args = append(args, "--trace")
+	}
+
 	return args
 }
 
@@ -428,6 +449,13 @@ type FetcherOptions struct {
 type Pandoc struct {
 	timeout  time.Duration
 	fetchers map[string]fetcher.Fetcher
+
+	verbose    bool
+	trace      bool
+	dumpArgs   bool
+	ignoreArgs bool
+
+	safeDir string
 }
 
 func New(conf config.Configuration) (pandoc *Pandoc, err error) {
@@ -483,6 +511,18 @@ func New(conf config.Configuration) (pandoc *Pandoc, err error) {
 		pdoc.fetchers[fName] = f
 	}
 
+	pdoc.verbose = conf.GetBoolean("verbose")
+	pdoc.trace = conf.GetBoolean("trace")
+	pdoc.dumpArgs = conf.GetBoolean("dump-args")
+	pdoc.ignoreArgs = conf.GetBoolean("ignore-args")
+
+	cwd, err := os.Getwd()
+	if err != nil {
+		return
+	}
+
+	pdoc.safeDir = conf.GetString("safe-dir", cwd)
+
 	pandoc = pdoc
 
 	return
@@ -491,6 +531,11 @@ func New(conf config.Configuration) (pandoc *Pandoc, err error) {
 func (p *Pandoc) Convert(fetcherOpts FetcherOptions, convertOpts ConvertOptions) (ret []byte, err error) {
 
 	var data []byte
+
+	if len(convertOpts.DataDir) > 0 && !filepath.HasPrefix(convertOpts.DataDir, p.safeDir) {
+		err = fmt.Errorf("DataDir: '%s' is not is safe dir: '%s'", convertOpts.DataDir, p.safeDir)
+		return
+	}
 
 	if len(fetcherOpts.Name) == 0 {
 		err = fmt.Errorf("non input method, please check your fetcher options or uri param")
@@ -518,6 +563,11 @@ func (p *Pandoc) Convert(fetcherOpts FetcherOptions, convertOpts ConvertOptions)
 	}
 
 	defer os.Remove(tmpInput)
+
+	convertOpts.verbose = p.verbose
+	convertOpts.trace = p.trace
+	convertOpts.dumpArgs = p.dumpArgs
+	convertOpts.ignoreArgs = p.ignoreArgs
 
 	args := convertOpts.toCommandArgs()
 

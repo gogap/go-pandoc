@@ -1,0 +1,8 @@
+server:
+    image: idocking/go-pandoc:latest
+    command: ["./go-pandoc", "run"]
+    ports:
+      - 8080:8080
+    volumes:
+      - ./templates:/app/templates
+      - ./app.conf:/app/app.conf
