@@ -5,4 +5,5 @@ server:
       - 8080:8080
     volumes:
       - ./templates:/app/templates
+      - ./data:/app/data
       - ./app.conf:/app/app.conf
