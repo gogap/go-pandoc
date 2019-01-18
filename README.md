@@ -118,11 +118,18 @@ or
             "geometry:margin": "1cm",
             "subject": "gsjbxx"
         },
+        "metadata":{
+	    	"A":["A","B","C"],
+	    	"D":["Hello", "World"]
+	    },
         "template": "/app/data/docs.template"
     },
     "template": "binary"
 }
 ```
+
+> The font Source Han Sans SC could download from
+> https://github.com/adobe-fonts/source-han-sans/releases/tag/2.000R
 
 
 ### Request Args
@@ -457,3 +464,12 @@ pdoc, err := pandoc.New(conf)
 //...
 convData, err := pdoc.Convert(fetcherOpts, convertOpts)
 ```
+
+
+## QA
+
+#### How could I pass the `FILE` type args
+
+1. use url `http://` or `https://`
+2. use `file://`, the file should be in `SafeDir`
+3. use `data:image/jpeg;base64,/9j/4AAQSkZJRgABA`

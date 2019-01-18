@@ -16,7 +16,7 @@ import (
 	"github.com/gogap/go-pandoc/pandoc/fetcher"
 )
 
-type Metadata map[string]string
+type Metadata map[string][]string
 type Variable map[string]string
 type RequestHeader map[string]string
 
@@ -24,7 +24,6 @@ type ConvertOptions struct {
 	From                  string        `json:"from"`
 	To                    string        `json:"to"`
 	DataDir               string        `json:"data_dir"`
-	Smart                 bool          `json:"smart"`
 	BaseHeaderLevel       int           `json:"base_header_level"`
 	StripEmptyParagraphs  bool          `json:"strip_empty_paragraphs"`
 	IndentedCodeClasses   string        `json:"indented_code_classes"`
@@ -38,6 +37,7 @@ type ConvertOptions struct {
 	Standalone            bool          `json:"standalone"`
 	Template              string        `json:"template"`
 	Metadata              Metadata      `json:"metadata"`
+	MetadataFile          string        `json:"metadata_file"`
 	Variable              Variable      `json:"variable"`
 	PrintDefaultTemplate  string        `json:"print_default_template"`
 	PrintDefaultDataFile  string        `json:"print_default_data_file"`
@@ -105,14 +105,33 @@ type ConvertOptions struct {
 	ignoreArgs bool
 }
 
-func (p *ConvertOptions) toCommandArgs() []string {
+func toCommandFileArgs(k, url, safeDir string) (args []string, cleanup func(), err error) {
+	f := File{Url: url, TempDirPrefix: "go-pandoc", SafeDir: safeDir}
+
+	var tmpFilename string
+	tmpFilename, err = f.Path()
+	if err != nil {
+		return
+	}
+
+	cleanup = f.Cleanup
+	args = []string{k, tmpFilename}
+
+	return
+}
+
+func (p *ConvertOptions) toCommandArgs(safeDir string) (ret []string, cleanups []func(), err error) {
 	var args []string
 
-	if p.Smart {
-		args = append(args, "+smart")
-	} else {
-		args = append(args, "-smart")
-	}
+	var cleanupFuncs []func()
+
+	defer func() {
+		if err != nil {
+			for i := 0; i < len(cleanupFuncs); i++ {
+				cleanupFuncs[i]()
+			}
+		}
+	}()
 
 	if p.StripEmptyParagraphs {
 		args = append(args, "--strip-empty-paragraphs")
@@ -202,8 +221,21 @@ func (p *ConvertOptions) toCommandArgs() []string {
 		args = append(args, "--variable", strings.Join([]string{k, v}, "="))
 	}
 
-	for k, v := range p.Metadata {
-		args = append(args, "--metadata", strings.Join([]string{k, v}, "="))
+	for k, values := range p.Metadata {
+		for i := 0; i < len(values); i++ {
+			args = append(args, "--metadata", strings.Join([]string{k, values[i]}, "="))
+		}
+	}
+
+	if len(p.MetadataFile) > 0 {
+		fileArgs, fn, e := toCommandFileArgs("--metadata-file", p.MetadataFile, safeDir)
+		if e != nil {
+			return
+		}
+		if len(args[1]) > 0 {
+			args = append(args, fileArgs...)
+			cleanupFuncs = append(cleanupFuncs, fn)
+		}
 	}
 
 	for k, v := range p.RequestHeader {
@@ -254,8 +286,15 @@ func (p *ConvertOptions) toCommandArgs() []string {
 		args = append(args, "--extract-media", p.ExtractMedia)
 	}
 
-	if len(p.Template) != 0 {
-		args = append(args, "--template", p.Template)
+	if len(p.Template) > 0 {
+		fileArgs, fn, e := toCommandFileArgs("--template", p.Template, safeDir)
+		if e != nil {
+			return
+		}
+		if len(args[1]) > 0 {
+			args = append(args, fileArgs...)
+			cleanupFuncs = append(cleanupFuncs, fn)
+		}
 	}
 
 	if len(p.PrintDefaultTemplate) != 0 {
@@ -294,20 +333,48 @@ func (p *ConvertOptions) toCommandArgs() []string {
 		args = append(args, "--highlight-style", p.HighlightStyle)
 	}
 
-	if len(p.SyntaxDefinition) != 0 {
-		args = append(args, "--syntax-definition", p.SyntaxDefinition)
+	if len(p.SyntaxDefinition) > 0 {
+		fileArgs, fn, e := toCommandFileArgs("--syntax-definition", p.SyntaxDefinition, safeDir)
+		if e != nil {
+			return
+		}
+		if len(args[1]) > 0 {
+			args = append(args, fileArgs...)
+			cleanupFuncs = append(cleanupFuncs, fn)
+		}
 	}
 
-	if len(p.IncludeInHeader) != 0 {
-		args = append(args, "--include-in-header", p.IncludeInHeader)
+	if len(p.IncludeInHeader) > 0 {
+		fileArgs, fn, e := toCommandFileArgs("--include-in-header", p.IncludeInHeader, safeDir)
+		if e != nil {
+			return
+		}
+		if len(args[1]) > 0 {
+			args = append(args, fileArgs...)
+			cleanupFuncs = append(cleanupFuncs, fn)
+		}
 	}
 
-	if len(p.IncludeBeforeBody) != 0 {
-		args = append(args, "--include-before-body", p.IncludeBeforeBody)
+	if len(p.IncludeBeforeBody) > 0 {
+		fileArgs, fn, e := toCommandFileArgs("--include-before-body", p.IncludeBeforeBody, safeDir)
+		if e != nil {
+			return
+		}
+		if len(args[1]) > 0 {
+			args = append(args, fileArgs...)
+			cleanupFuncs = append(cleanupFuncs, fn)
+		}
 	}
 
-	if len(p.IncludeAfterBody) != 0 {
-		args = append(args, "--include-after-body", p.IncludeAfterBody)
+	if len(p.IncludeAfterBody) > 0 {
+		fileArgs, fn, e := toCommandFileArgs("--include-after-body", p.IncludeAfterBody, safeDir)
+		if e != nil {
+			return
+		}
+		if len(args[1]) > 0 {
+			args = append(args, fileArgs...)
+			cleanupFuncs = append(cleanupFuncs, fn)
+		}
 	}
 
 	if len(p.ResourcePath) != 0 {
@@ -350,24 +417,56 @@ func (p *ConvertOptions) toCommandArgs() []string {
 		args = append(args, "--css", p.CSS)
 	}
 
-	if len(p.ReferenceDoc) != 0 {
-		args = append(args, "--reference-doc", p.ReferenceDoc)
+	if len(p.ReferenceDoc) > 0 {
+		f := File{Url: p.ReferenceDoc, TempDirPrefix: "go-pandoc"}
+		var tmpFilename string
+		tmpFilename, err = f.Path()
+		if err != nil {
+			return
+		}
+
+		args = append(args, "--reference-doc", tmpFilename)
+		cleanupFuncs = append(cleanupFuncs, f.Cleanup)
 	}
 
 	if len(p.EpubSubdirectory) != 0 {
 		args = append(args, "--epub-subdirectory", p.EpubSubdirectory)
 	}
 
-	if len(p.EpubCoverImage) != 0 {
-		args = append(args, "--epub-cover-image", p.EpubCoverImage)
+	if len(p.EpubCoverImage) > 0 {
+		f := File{Url: p.EpubCoverImage, TempDirPrefix: "go-pandoc"}
+		var tmpFilename string
+		tmpFilename, err = f.Path()
+		if err != nil {
+			return
+		}
+
+		args = append(args, "--epub-cover-image", tmpFilename)
+		cleanupFuncs = append(cleanupFuncs, f.Cleanup)
 	}
 
-	if len(p.EpubMetadata) != 0 {
-		args = append(args, "--epub-metadata", p.EpubMetadata)
+	if len(p.EpubMetadata) > 0 {
+		f := File{Url: p.EpubMetadata, TempDirPrefix: "go-pandoc"}
+		var tmpFilename string
+		tmpFilename, err = f.Path()
+		if err != nil {
+			return
+		}
+
+		args = append(args, "--epub-metadata", tmpFilename)
+		cleanupFuncs = append(cleanupFuncs, f.Cleanup)
 	}
 
-	if len(p.EpubEmbedFont) != 0 {
-		args = append(args, "--epub-embed-font", p.EpubEmbedFont)
+	if len(p.EpubEmbedFont) > 0 {
+		f := File{Url: p.EpubEmbedFont, TempDirPrefix: "go-pandoc"}
+		var tmpFilename string
+		tmpFilename, err = f.Path()
+		if err != nil {
+			return
+		}
+
+		args = append(args, "--epub-embed-font", tmpFilename)
+		cleanupFuncs = append(cleanupFuncs, f.Cleanup)
 	}
 
 	if p.EpubChapterLevel != 0 {
@@ -382,16 +481,40 @@ func (p *ConvertOptions) toCommandArgs() []string {
 		args = append(args, "--pdf-engine-opt", p.PDFEngineOpt)
 	}
 
-	if len(p.Bibliography) != 0 {
-		args = append(args, "--bibliography", p.Bibliography)
+	if len(p.Bibliography) > 0 {
+		f := File{Url: p.Bibliography, TempDirPrefix: "go-pandoc"}
+		var tmpFilename string
+		tmpFilename, err = f.Path()
+		if err != nil {
+			return
+		}
+
+		args = append(args, "--bibliography", tmpFilename)
+		cleanupFuncs = append(cleanupFuncs, f.Cleanup)
 	}
 
-	if len(p.CSL) != 0 {
-		args = append(args, "--csl", p.CSL)
+	if len(p.CSL) > 0 {
+		f := File{Url: p.CSL, TempDirPrefix: "go-pandoc"}
+		var tmpFilename string
+		tmpFilename, err = f.Path()
+		if err != nil {
+			return
+		}
+
+		args = append(args, "--csl", tmpFilename)
+		cleanupFuncs = append(cleanupFuncs, f.Cleanup)
 	}
 
-	if len(p.CitationAbbreviations) != 0 {
-		args = append(args, "--citation-abbreviations", p.CitationAbbreviations)
+	if len(p.CitationAbbreviations) > 0 {
+		f := File{Url: p.CitationAbbreviations, TempDirPrefix: "go-pandoc"}
+		var tmpFilename string
+		tmpFilename, err = f.Path()
+		if err != nil {
+			return
+		}
+
+		args = append(args, "--citation-abbreviations", tmpFilename)
+		cleanupFuncs = append(cleanupFuncs, f.Cleanup)
 	}
 
 	if len(p.Webtex) != 0 {
@@ -418,8 +541,16 @@ func (p *ConvertOptions) toCommandArgs() []string {
 		args = append(args, "--jsmath", p.Jsmath)
 	}
 
-	if len(p.Abbreviations) != 0 {
-		args = append(args, "--abbreviations", p.Abbreviations)
+	if len(p.Abbreviations) > 0 {
+		f := File{Url: p.Abbreviations, TempDirPrefix: "go-pandoc"}
+		var tmpFilename string
+		tmpFilename, err = f.Path()
+		if err != nil {
+			return
+		}
+
+		args = append(args, "--abbreviations", tmpFilename)
+		cleanupFuncs = append(cleanupFuncs, f.Cleanup)
 	}
 
 	if p.verbose {
@@ -438,7 +569,7 @@ func (p *ConvertOptions) toCommandArgs() []string {
 		args = append(args, "--trace")
 	}
 
-	return args
+	return args, cleanupFuncs, nil
 }
 
 type FetcherOptions struct {
@@ -537,11 +668,6 @@ func (p *Pandoc) Convert(fetcherOpts FetcherOptions, convertOpts ConvertOptions)
 		return
 	}
 
-	if len(convertOpts.Template) > 0 && !filepath.HasPrefix(convertOpts.Template, p.safeDir) {
-		err = fmt.Errorf("Template: '%s' is not in safe dir: '%s'", convertOpts.Template, p.safeDir)
-		return
-	}
-
 	if len(fetcherOpts.Name) == 0 {
 		err = fmt.Errorf("non input method, please check your fetcher options or uri param")
 		return
@@ -574,7 +700,18 @@ func (p *Pandoc) Convert(fetcherOpts FetcherOptions, convertOpts ConvertOptions)
 	convertOpts.dumpArgs = p.dumpArgs
 	convertOpts.ignoreArgs = p.ignoreArgs
 
-	args := convertOpts.toCommandArgs()
+	args, cleanupFuncs, err := convertOpts.toCommandArgs(p.safeDir)
+	if err != nil {
+		return
+	}
+
+	if len(cleanupFuncs) > 0 {
+		defer func() {
+			for i := 0; i < len(cleanupFuncs); i++ {
+				cleanupFuncs[i]()
+			}
+		}()
+	}
 
 	args = append(args, []string{"--quiet", tmpInput, "--output", tmpOutpout}...)
 
