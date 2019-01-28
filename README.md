@@ -79,6 +79,9 @@ or
 		dump-args   = false
 		ignore-args = false
 
+        enable-filter = false
+		enable-lua-filter = false
+
 		safe-dir = "/app"
 
 		fetchers {
@@ -96,7 +99,7 @@ or
 }
 ```
 
-
+q
 ## API
 
 ```json

@@ -120,7 +120,7 @@ func toCommandFileArgs(k, url, safeDir string) (args []string, cleanup func(), e
 	return
 }
 
-func (p *ConvertOptions) toCommandArgs(safeDir string) (ret []string, cleanups []func(), err error) {
+func (p *ConvertOptions) toCommandArgs(safeDir string, enableFilter, enableLuaFilter bool) (ret []string, cleanups []func(), err error) {
 	var args []string
 
 	var cleanupFuncs []func()
@@ -266,11 +266,11 @@ func (p *ConvertOptions) toCommandArgs(safeDir string) (ret []string, cleanups [
 		args = append(args, "--indented-code-classes", p.IndentedCodeClasses)
 	}
 
-	if len(p.Filter) != 0 {
+	if enableFilter == true && len(p.Filter) != 0 {
 		args = append(args, "--filter", p.Filter)
 	}
 
-	if len(p.LuaFilter) != 0 {
+	if enableLuaFilter == true && len(p.LuaFilter) != 0 {
 		args = append(args, "--lua-filter", p.LuaFilter)
 	}
 
@@ -586,6 +586,9 @@ type Pandoc struct {
 	dumpArgs   bool
 	ignoreArgs bool
 
+	enableFilter    bool
+	enableLuaFilter bool
+
 	safeDir string
 }
 
@@ -646,6 +649,8 @@ func New(conf config.Configuration) (pandoc *Pandoc, err error) {
 	pdoc.trace = conf.GetBoolean("trace")
 	pdoc.dumpArgs = conf.GetBoolean("dump-args")
 	pdoc.ignoreArgs = conf.GetBoolean("ignore-args")
+	pdoc.enableFilter = conf.GetBoolean("enable-filter")
+	pdoc.enableLuaFilter = conf.GetBoolean("enable-lua-filter")
 
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -700,7 +705,7 @@ func (p *Pandoc) Convert(fetcherOpts FetcherOptions, convertOpts ConvertOptions)
 	convertOpts.dumpArgs = p.dumpArgs
 	convertOpts.ignoreArgs = p.ignoreArgs
 
-	args, cleanupFuncs, err := convertOpts.toCommandArgs(p.safeDir)
+	args, cleanupFuncs, err := convertOpts.toCommandArgs(p.safeDir, p.enableFilter, p.enableLuaFilter)
 	if err != nil {
 		return
 	}
