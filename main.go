@@ -33,13 +33,13 @@ func main() {
 			Usage:  "run pandoc service",
 			Action: run,
 			Flags: []cli.Flag{
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:    "config",
 					Aliases: []string{"c"},
 					Usage:   "config filename",
 					Value:   "app.conf",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "cwd",
 					Usage: "change work dir",
 				},
