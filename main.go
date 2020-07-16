@@ -27,19 +27,19 @@ func main() {
 	app := cli.NewApp()
 
 	app.Usage = "A server for pandoc command"
-
 	app.Commands = cli.Commands{
-		cli.Command{
+		&cli.Command{
 			Name:   "run",
 			Usage:  "run pandoc service",
 			Action: run,
 			Flags: []cli.Flag{
-				cli.StringFlag{
-					Name:  "config,c",
-					Usage: "config filename",
-					Value: "app.conf",
+				&cli.StringFlag{
+					Name:    "config",
+					Aliases: []string{"c"},
+					Usage:   "config filename",
+					Value:   "app.conf",
 				},
-				cli.StringFlag{
+				&cli.StringFlag{
 					Name:  "cwd",
 					Usage: "change work dir",
 				},
